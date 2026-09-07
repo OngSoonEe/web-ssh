@@ -84,6 +84,7 @@ export function attachSshBridge(wss) {
     }
     recent.push(nowTs);
     connectWindow.set(ip, recent);
+    console.log(`[conn] websocket from ${ip} (${wss.clients.size} active)`);
 
     const cleanup = () => {
       try { stream?.end(); } catch { /* noop */ }
@@ -161,9 +162,12 @@ export function attachSshBridge(wss) {
         return send({ type: 'error', message: 'Unsupported auth type.' });
       }
 
+      console.log(`[ssh] ${ip} -> ${username}@${host}:${port} (${auth.type})`);
       send({ type: 'status', message: `Connecting to ${username}@${host}:${port}...` });
       conn = new Client();
+      const startedAt = Date.now();
       conn.on('ready', () => {
+        console.log(`[ssh] ${ip} session opened: ${username}@${host}:${port}`);
         send({ type: 'status', message: 'Authenticated, opening shell...' });
         conn.shell({ term: 'xterm-256color', cols, rows }, (err, s) => {
           if (err) {
@@ -174,6 +178,7 @@ export function attachSshBridge(wss) {
           stream = s;
           s.on('data', (d) => { if (ws.readyState === 1) ws.send(d, { binary: true }); });
           s.on('close', () => {
+            console.log(`[ssh] ${ip} session ended: ${username}@${host}:${port} (${Math.round((Date.now() - startedAt) / 1000)}s)`);
             send({ type: 'closed', reason: 'Remote session ended.' });
             cleanup();
             try { ws.close(); } catch { /* noop */ }
@@ -182,6 +187,7 @@ export function attachSshBridge(wss) {
         });
       });
       conn.on('error', (e) => {
+        console.warn(`[ssh] ${ip} FAILED to ${username}@${host}:${port}: ${e.message}`);
         send({ type: 'error', message: `SSH error: ${e.message}` });
         cleanup();
       });

@@ -157,6 +157,7 @@ docker run -d --name web-ssh -p 3000:3000 -e AUTH_PASSWORD=*** --restart unless-
 - **Live usage:** `curl https://ssh.ewizt.com/api/stats` → active sessions, unique IPs, busiest client, configured caps.
 - **Capacity guards:** connections over the caps are auto-rejected with an error (auto-kill at the door) and logged server-side as `[guard] ...`.
 - **Kill switch:** `POST /admin/kill` with header `x-admin-token: <ADMIN_TOKEN>` terminates all active sessions; JSON body `{"ip":"1.2.3.4"}` targets a single address. Disabled unless `ADMIN_TOKEN` is set.
+- **Connection logs:** every WebSocket connection, SSH attempt (target + auth type — **never** passwords or keys), session open/close with duration, and guard/admin events are logged to the app output (e.g. `/var/log/webssh-app.log`).
 
 ## Test
 
