@@ -11,7 +11,7 @@
   "engines": {
     "node": ">=18"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",

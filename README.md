@@ -12,7 +12,7 @@ browser (anywhere) ──HTTPS──> VPS: web-ssh + tailscale ──tailnet─�
 ```
 
 ![node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
-![license](https://img.shields.io/badge/license-MIT-blue)
+![license](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![build](https://img.shields.io/badge/build-none-orange)
 
 ## Why
@@ -169,4 +169,4 @@ Express + ws + ssh2 + @xterm/xterm — no build step, no CDN.
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE).
