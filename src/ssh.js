@@ -64,11 +64,13 @@ export function attachSshBridge(wss) {
     let perIp = 0;
     for (const c of wss.clients) { total++; if (c !== ws && c._ip === ip) perIp++; }
     if (total > MAX_SESSIONS) {
+      console.warn(`[guard] global cap exceeded ip=${ip} sessions=${total}/${MAX_SESSIONS} perIp=${perIp}/${MAX_SESSIONS_PER_IP}`);
       send({ type: 'error', message: 'Server at capacity — try again later.' });
       try { ws.close(); } catch { /* noop */ }
       return;
     }
     if (perIp >= MAX_SESSIONS_PER_IP) {
+      console.warn(`[guard] per-ip cap exceeded ip=${ip} sessions=${total}/${MAX_SESSIONS} perIp=${perIp}/${MAX_SESSIONS_PER_IP}`);
       send({ type: 'error', message: 'Too many concurrent sessions from your address.' });
       try { ws.close(); } catch { /* noop */ }
       return;
@@ -76,6 +78,7 @@ export function attachSshBridge(wss) {
     const nowTs = Date.now();
     const recent = (connectWindow.get(ip) || []).filter((t) => nowTs - t < CONNECT_WINDOW_MS);
     if (recent.length >= MAX_CONNECTS_PER_IP) {
+      console.warn(`[guard] rate cap exceeded ip=${ip} connects=${recent.length}/${MAX_CONNECTS_PER_IP} in ${CONNECT_WINDOW_MS / 60000}min`);
       try { ws.close(); } catch { /* noop */ }
       return;
     }

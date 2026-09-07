@@ -76,7 +76,7 @@ function startFakeSshd() {
 // ---------- helpers ----------
 function startWebServer() {
   const child = spawn(process.execPath, [path.join(ROOT, 'src', 'server.js')], {
-    env: { ...process.env, PORT: String(WEB_PORT), BIND_HOST: '127.0.0.1', AUTH_PASSWORD: PASSWORD },
+    env: { ...process.env, PORT: String(WEB_PORT), BIND_HOST: '127.0.0.1', AUTH_PASSWORD: PASSWORD, ADMIN_TOKEN: 'test-admin-token' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stderr.on('data', (d) => process.stderr.write(`[server] ${d}`));
@@ -212,6 +212,33 @@ try {
       auth: { type: 'key', value: pem },
     });
   } catch (e) { fail(e.message); } finally { sshd2.server.close(); }
+
+  // capacity guards + stats + kill switch
+  const capRes = await login(PASSWORD);
+  const capCookie = (capRes.headers.getSetCookie?.()[0] || '').split(';')[0];
+  const socks = [];
+  for (let i = 0; i < 3; i++) socks.push(await wsConnect(capCookie));
+  const st = await (await fetch(`${BASE}/api/stats`)).json();
+  if (st.sessions === 3 && st.uniqueIps === 1 && st.maxSessionsPerIp === 3) pass('stats endpoint reports live sessions (3 open, 1 ip)');
+  else fail(`stats: ${JSON.stringify(st)}`);
+
+  const fourth = await wsConnect(capCookie);
+  try {
+    await fourth.waitMsg((m) => m.type === 'error' && /Too many concurrent/.test(m.message), 'per-ip guard');
+    pass('4th concurrent session auto-rejected (per-IP cap)');
+  } catch (e) { fail(`per-ip guard: ${e.message}`); }
+
+  const wrong = await fetch(`${BASE}/admin/kill`, { method: 'POST', headers: { 'x-admin-token': 'wrong-token' } });
+  if (wrong.status === 403) pass('admin kill switch: wrong token rejected (403)');
+  else fail(`admin kill wrong token: ${wrong.status}`);
+
+  const kill = await fetch(`${BASE}/admin/kill`, { method: 'POST', headers: { 'x-admin-token': 'test-admin-token' } });
+  const kj = await kill.json().catch(() => ({}));
+  if (kill.status === 200 && kj.ok && kj.killed >= 3) pass(`admin kill switch terminated ${kj.killed} session(s)`);
+  else fail(`admin kill: ${kill.status} ${JSON.stringify(kj)}`);
+
+  for (const s of socks) await s.close();
+  await fourth.close();
 
   console.log(exitCode === 0 ? '\nAll e2e checks passed' : '\nE2E test had failures');
 } finally {

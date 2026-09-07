@@ -25,6 +25,7 @@ const TLS_CERT = process.env.TLS_CERT;
 const TLS_KEY = process.env.TLS_KEY;
 const USE_TLS = Boolean(TLS_CERT && TLS_KEY);
 const PUBLIC_MODE = process.env.PUBLIC_MODE === '1';
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 
 // ---------- auth ----------
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || (() => {
@@ -142,6 +143,44 @@ const server = USE_TLS
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 1 << 20 });
 attachSshBridge(wss);
+
+app.get('/api/stats', (req, res) => {
+  const perIp = new Map();
+  for (const c of wss.clients) {
+    const k = c._ip || 'unknown';
+    perIp.set(k, (perIp.get(k) || 0) + 1);
+  }
+  res.json({
+    sessions: wss.clients.size,
+    uniqueIps: perIp.size,
+    busiestIp: perIp.size ? Math.max(...perIp.values()) : 0,
+    maxSessions: intEnv('MAX_SESSIONS', 100),
+    maxSessionsPerIp: intEnv('MAX_SESSIONS_PER_IP', 3),
+    publicMode: PUBLIC_MODE,
+  });
+});
+
+app.post('/admin/kill', (req, res) => {
+  if (!ADMIN_TOKEN) return res.status(404).json({ error: 'Kill switch disabled (ADMIN_TOKEN not set).' });
+  const rip = req.socket.remoteAddress || 'unknown';
+  if (tooManyFailures(rip)) return res.status(429).json({ error: 'Too many attempts, try again later.' });
+  const token = typeof req.body?.token === 'string' ? req.body.token
+    : (typeof req.headers['x-admin-token'] === 'string' ? req.headers['x-admin-token'] : '');
+  if (!token || !passwordMatches(token, ADMIN_TOKEN)) {
+    recordFailure(rip);
+    return res.status(403).json({ error: 'Forbidden.' });
+  }
+  const targetIp = typeof req.body?.ip === 'string' ? req.body.ip.trim() : '';
+  let killed = 0;
+  for (const c of wss.clients) {
+    if (targetIp && c._ip !== targetIp) continue;
+    try { if (c.readyState === 1) c.send(JSON.stringify({ type: 'error', message: 'Session terminated by administrator.' })); } catch { /* noop */ }
+    try { c.close(); } catch { /* noop */ }
+    killed++;
+  }
+  console.warn(`[admin] kill switch: terminated ${killed} session(s)${targetIp ? ` for ${targetIp}` : ''}`);
+  res.json({ ok: true, killed });
+});
 
 function originOk(req) {
   const o = req.headers.origin;

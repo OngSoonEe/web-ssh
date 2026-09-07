@@ -152,6 +152,12 @@ docker run -d --name web-ssh -p 3000:3000 -e AUTH_PASSWORD=*** --restart unless-
 - Your machines stay hidden: no port forwarding, no public exposure — only the
   overlay network can reach them.
 
+## Operations
+
+- **Live usage:** `curl https://ssh.ewizt.com/api/stats` → active sessions, unique IPs, busiest client, configured caps.
+- **Capacity guards:** connections over the caps are auto-rejected with an error (auto-kill at the door) and logged server-side as `[guard] ...`.
+- **Kill switch:** `POST /admin/kill` with header `x-admin-token: <ADMIN_TOKEN>` terminates all active sessions; JSON body `{"ip":"1.2.3.4"}` targets a single address. Disabled unless `ADMIN_TOKEN` is set.
+
 ## Test
 
 ```bash
