@@ -24,6 +24,7 @@ const SESSION_TTL_MS = intEnv('SESSION_TTL_HOURS', 12) * 3600_000;
 const TLS_CERT = process.env.TLS_CERT;
 const TLS_KEY = process.env.TLS_KEY;
 const USE_TLS = Boolean(TLS_CERT && TLS_KEY);
+const PUBLIC_MODE = process.env.PUBLIC_MODE === '1';
 
 // ---------- auth ----------
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || (() => {
@@ -124,7 +125,7 @@ app.post('/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/me', (req, res) => res.json({ authed: isAuthed(req) }));
+app.get('/api/me', (req, res) => res.json({ authed: PUBLIC_MODE || isAuthed(req), publicMode: PUBLIC_MODE }));
 
 // vendored frontend deps straight from node_modules (no CDN needed)
 const XP = path.join(ROOT, 'node_modules', '@xterm', 'xterm');
@@ -149,7 +150,7 @@ function originOk(req) {
 }
 
 server.on('upgrade', (req, socket, head) => {
-  if (req.url.split('?')[0] !== '/ws' || !isAuthed(req) || !originOk(req)) {
+  if (req.url.split('?')[0] !== '/ws' || !originOk(req) || (!PUBLIC_MODE && !isAuthed(req))) {
     socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
     socket.destroy();
     return;

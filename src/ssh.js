@@ -12,6 +12,25 @@ const MAX_HOST_LEN = 253;
 const HOST_RE = /^[A-Za-z0-9._\-:[\]]+$/;
 const USER_RE = /^[A-Za-z0-9._\-@]+$/;
 
+const intEnv = (name, dflt) => {
+  const n = parseInt(process.env[name], 10);
+  return Number.isFinite(n) ? n : dflt;
+};
+
+// capacity guards — protect the box, esp. on open instances
+const MAX_SESSIONS = intEnv('MAX_SESSIONS', 100);
+const MAX_SESSIONS_PER_IP = intEnv('MAX_SESSIONS_PER_IP', 3);
+const MAX_CONNECTS_PER_IP = intEnv('MAX_CONNECTS_PER_IP', 20);
+const CONNECT_WINDOW_MS = 5 * 60_000;
+const connectWindow = new Map(); // ip -> recent connect timestamps
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, arr] of connectWindow) {
+    const keep = arr.filter((t) => now - t < CONNECT_WINDOW_MS);
+    if (keep.length) connectWindow.set(ip, keep); else connectWindow.delete(ip);
+  }
+}, 60_000).unref?.();
+
 const clampInt = (v, min, max, dflt) => {
   const n = Math.round(Number(v));
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : dflt;
@@ -28,7 +47,7 @@ export function attachSshBridge(wss) {
   }, 30_000);
   ping.unref?.();
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
 
@@ -36,6 +55,33 @@ export function attachSshBridge(wss) {
     let stream = null;
 
     const send = (obj) => { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); };
+
+    // capacity guards (per-IP + global) — behind a proxy, trust X-Forwarded-For
+    const fwd = typeof req?.headers?.['x-forwarded-for'] === 'string' ? req.headers['x-forwarded-for'].split(',')[0].trim() : '';
+    const ip = fwd || req?.socket?.remoteAddress || 'unknown';
+    ws._ip = ip;
+    let total = 0;
+    let perIp = 0;
+    for (const c of wss.clients) { total++; if (c !== ws && c._ip === ip) perIp++; }
+    if (total > MAX_SESSIONS) {
+      send({ type: 'error', message: 'Server at capacity — try again later.' });
+      try { ws.close(); } catch { /* noop */ }
+      return;
+    }
+    if (perIp >= MAX_SESSIONS_PER_IP) {
+      send({ type: 'error', message: 'Too many concurrent sessions from your address.' });
+      try { ws.close(); } catch { /* noop */ }
+      return;
+    }
+    const nowTs = Date.now();
+    const recent = (connectWindow.get(ip) || []).filter((t) => nowTs - t < CONNECT_WINDOW_MS);
+    if (recent.length >= MAX_CONNECTS_PER_IP) {
+      try { ws.close(); } catch { /* noop */ }
+      return;
+    }
+    recent.push(nowTs);
+    connectWindow.set(ip, recent);
+
     const cleanup = () => {
       try { stream?.end(); } catch { /* noop */ }
       try { conn?.end(); } catch { /* noop */ }

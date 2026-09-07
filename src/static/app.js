@@ -57,7 +57,11 @@
     try {
       const r = await fetch('/api/me');
       const j = await r.json();
-      if (j.authed) { loginOverlay.classList.add('hidden'); initTerm(); }
+      if (j.authed) {
+        if (j.publicMode) $('logout-btn').classList.add('hidden');
+        loginOverlay.classList.add('hidden');
+        initTerm();
+      }
       else loginOverlay.classList.remove('hidden');
     } catch { loginOverlay.classList.remove('hidden'); }
   }

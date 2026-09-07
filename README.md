@@ -39,6 +39,16 @@ One URL. One password. Every machine.
 - 🔐 HTTPS your way — built-in TLS env vars, or park Caddy/nginx in front
 - 🐳 Ships with a Dockerfile; happy under systemd, screen, or your favorite supervisor
 - 🧪 Self-contained e2e test suite — no external SSH server needed
+- 🌍 Multiple concurrent sessions — every browser tab is its own isolated terminal (per-IP and global caps keep it fair)
+
+## 🌉 Free public bridge
+
+A live instance runs at **https://ssh.ewizt.com** — no signup, free to use.
+
+Open it in any browser, point it at any SSH server you administer, enter your
+credentials, and work. Handy from locked-down corporate networks, internet
+cafés, or your phone. Fair use: concurrent sessions are capped and
+connection-rate limited, and your SSH credentials are never stored.
 
 ## How it works
 
