@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Web-SSH</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230f1116'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='%237ee787' font-family='monospace'%3E%26gt;_%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/vendor/xterm.css">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="login-overlay" class="overlay hidden">
+    <form id="login-form" class="card">
+      <h1>&gt;_ Web-SSH</h1>
+      <p class="muted">Sign in to use this terminal gateway.</p>
+      <input id="l-password" type="password" placeholder="Password" autocomplete="current-password" required autofocus>
+      <button type="submit">Sign in</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </div>
+
+  <header>
+    <span class="brand">&gt;_ Web-SSH</span>
+    <span class="status"><span id="status-dot" class="dot idle"></span><span id="status-text">Idle</span></span>
+    <button id="logout-btn" class="ghost" type="button">Logout</button>
+  </header>
+
+  <main>
+    <form id="conn-form" autocomplete="off">
+      <input id="f-host" placeholder="Host (e.g. home-pc.tailnet-name.ts.net or 100.x.y.z)" required spellcheck="false">
+      <input id="f-port" type="number" min="1" max="65535" value="22" title="Port">
+      <input id="f-username" placeholder="User" required spellcheck="false">
+      <select id="f-auth-type" title="Auth method">
+        <option value="password">Password</option>
+        <option value="key">Private key</option>
+      </select>
+      <input id="f-password" type="password" placeholder="SSH password" autocomplete="new-password">
+      <textarea id="f-key" class="hidden" placeholder="Paste private key (PEM)" rows="3" spellcheck="false"></textarea>
+      <input id="f-passphrase" class="hidden" type="password" placeholder="Key passphrase (optional)" autocomplete="new-password">
+      <div class="btns">
+        <button type="submit" id="btn-connect">Connect</button>
+        <button type="button" id="btn-disconnect" class="ghost" disabled>Disconnect</button>
+      </div>
+      <div id="recent-chips" class="chips"></div>
+    </form>
+    <div id="terminal"></div>
+  </main>
+
+  <script src="/vendor/xterm.js"></script>
+  <script src="/vendor/xterm-fit.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
